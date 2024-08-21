@@ -15,10 +15,6 @@ oc wait \
     --for=condition=ready \
     --timeout=300s \
     keycloak keycloak-server
-# Create client
-cd keycloak-client
-./deploy.sh
-cd ..
 ## Perform a backup 
 # oc exec -n keycloak-postgres postgresql-db-0 -- pg_dump -U testuser -d keycloak > keycloak-backup.sql
 ## Restore backup from local file
