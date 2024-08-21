@@ -3,7 +3,7 @@ echo Creating KC postgres database Openshift resources
 oc apply -f keycloak-postgres.yaml
 # Import CSA realm and wait for completion
 oc exec -n keycloak-postgres postgresql-db-0 -i \
-    -- psql -U testuser keycloak < .data/keycloak-backup.sql
+    -- psql -U testuser keycloak < ./data/keycloak-backup.sql
 # Deploy operator 
 echo Creating KC operator
 oc apply -f keycloak-operator.yaml
