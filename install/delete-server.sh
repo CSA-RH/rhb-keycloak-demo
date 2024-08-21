@@ -1,3 +1,3 @@
-oc delete project \    
+oc delete project \
     keycloak-operator \
     keycloak-postgres
