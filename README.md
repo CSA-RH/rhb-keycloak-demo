@@ -10,6 +10,8 @@ ReactJS Application Integration: Demonstrate the usage of a ReactJS application 
 - *Realm Management Scripts*: Includes scripts for importing and exporting Keycloak realms using the Operator CRD and OpenShift resources.
 - *Database Backup & Restore*: Provides scripts to facilitate the backup and restoration of the Postgres database associated with Keycloak.
 
+More information about the installation files in the [README](install/README.md) file of the install folder in this repository. 
+
 # Keycloak operator installation
 
 From the terminal -or just copying the YAML between `cat` and `EOF` and creating them OpenShift Web Console- issue the following command:
@@ -240,6 +242,8 @@ let initOptions = {
   // silentCheckSsoRedirectUri: (window.location.origin + "/silent-check-sso.html")
 }
 ```
+To install the client, please refer to the folder [keycloak-client](install/keycloak-client). 
+
 
 # Realm Management
 Realms configuration are located in the associated Keycloak backend database. It's possible to manage realms either by performing backup and restore on the target database or by exporting and importing realm configuration with the by Keycloak provided took kc.sh. 
