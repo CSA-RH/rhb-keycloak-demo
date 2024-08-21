@@ -1,0 +1,10 @@
+kind: KeycloakRealmImport
+apiVersion: k8s.keycloak.org/v2alpha1
+metadata:
+  generateName: realm-importer-
+  labels:
+    app: sso
+  namespace: keycloak-operator
+spec:
+  keycloakCRName: keycloak-server
+  realm: {}
