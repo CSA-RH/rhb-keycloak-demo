@@ -2,11 +2,13 @@
 echo Creating KC postgres database Openshift resources
 oc apply -f keycloak-postgres.yaml
 # Import CSA realm and wait for completion
+echo Waiting DB to initialize
 oc wait \
     -n keycloak-postgres \
     --for=condition=ready \
     --timeout=300s \
     pod postgresql-db-0
+sleep 5
 oc exec -n keycloak-postgres postgresql-db-0 -i \
     -- psql -U testuser keycloak < ./data/keycloak-backup.sql
 # Deploy operator 
