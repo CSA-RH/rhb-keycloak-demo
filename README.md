@@ -293,21 +293,21 @@ oc exec -n keycloak-postgres postgresql-db-0 -i \
 
    ```sql
    DELETE FROM credential WHERE user_id IN (
-       SELECT id,username FROM user_entity WHERE username='admin');
+       SELECT id FROM user_entity WHERE username='admin');
    ```
 
    Delete associated role mappings: 
 
    ```sql
    DELETE FROM user_role_mapping WHERE user_id IN (
-      SELECT id,username FROM user_entity WHERE username='admin');
+      SELECT id FROM user_entity WHERE username='admin');
    ```
 
    Delete User: 
    
    ```sql
    DELETE FROM user_entity WHERE id IN (
-       SELECT id,username FROM user_entity WHERE username='admin');
+       SELECT id FROM user_entity WHERE username='admin');
    ```
 
 3. Scale it back up by setting `'instances: X'` in the `Keycloak` CR. Optionally after the pod is `"Ready (1/1)"` scale it up to the desired amount of instances if more than one.
