@@ -436,7 +436,7 @@ oc exec -n keycloak-postgres postgresql-db-0 -i \
     -- psql -U testuser keycloak < keycloak-backup.sql
 ```
 
-### Deleting the built-in admin
+### Recreate the built-in admin with the default initial password
 
 1. Scale down the pods by setting `'instances: 0'` in the `Keycloak` CR.
 
