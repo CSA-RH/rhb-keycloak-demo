@@ -244,177 +244,18 @@ To install the client, please refer to the folder [keycloak-client](install/keyc
 
 
 # Realm Management
-Realms configuration are located in the associated Keycloak backend database. It's possible to manage realms either by performing backup and restore on the target database or by exporting and importing realm configuration with the by Keycloak provided took kc.sh. 
+Realms configuration are located in the associated Keycloak backend database. It's possible to manage realms either by performing backup and restore on the target database or by exporting and importing realm configuration with the by Keycloak provided took kc.sh or even partially exporting realm definitions from the Keycloak GUI. 
 
 ## Import and Export realms from OpenShift with CLI and Web tools
-As an example, the following job uses the kc.sh tool for exporting a realm with users and storing it in a file in at `/tmp/export-with-users.json` file. A configuration variable `REALM_TO_EXPORT` at container level indicates which realm is the one to export. After the export it sets a mark to be identified in a later step to get the JSON definition of the realm. 
+For importing a Realm into a Keycloak instance in OpenShift, the CRD `KeycloakRealmImport` installed by the RHBK operator can be used. The only steps to perform is to put the realm definition in the .spec.realm key of the CRD. In this example, it's shown how to retrieve a realm definition json file from a Job in a similar way that the CRD `KeycloakRealmImport`does and how to import by using the same CRD. 
 
-```console
-# Define in this variable the realm name to export
-export REALM_TO_EXPORT=csa 
-cat <<EOF | oc apply -f -
-kind: Job
-apiVersion: batch/v1
-metadata:
-  generateName: cat-realm-users-exporter-  
-  namespace: keycloak-operator  
-spec:
-  parallelism: 1
-  completions: 1
-  backoffLimit: 6  
-  template:
-    metadata:
-      labels:        
-        test: keycloak-realm-exporter-v2
-    spec:
-      volumes:
-        - name: keycloak-tls-certificates
-          secret:
-            secretName: general-tls-secret
-            defaultMode: 420
-            optional: false        
-      containers:
-        - resources:
-            limits:
-              memory: 2Gi
-            requests:
-              memory: 1700Mi
-          name: keycloak
-          command:
-            - /bin/bash
-          env:
-            - name: KC_HOSTNAME
-              value: oauth-keycloak-operator.apps.rosa.rosa-csa-02.vwa4.p3.openshiftapps.com
-            - name: KC_HTTP_PORT
-              value: '8080'
-            - name: KC_HTTPS_PORT
-              value: '8443'
-            - name: KC_HTTPS_CERTIFICATE_FILE
-              value: /mnt/certificates/tls.crt
-            - name: KC_HTTPS_CERTIFICATE_KEY_FILE
-              value: /mnt/certificates/tls.key
-            - name: KC_DB
-              value: postgres
-            - name: KC_DB_USERNAME
-              valueFrom:
-                secretKeyRef:
-                  name: keycloak-database-secret
-                  key: username
-            - name: KC_DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: keycloak-database-secret
-                  key: password
-            - name: KC_DB_URL_HOST
-              value: postgres-db.keycloak-postgres.svc
-            - name: KC_PROXY_HEADERS
-              value: xforwarded
-            - name: KEYCLOAK_ADMIN
-              valueFrom:
-                secretKeyRef:
-                  name: keycloak-server-initial-admin
-                  key: username
-                  optional: false
-            - name: KEYCLOAK_ADMIN_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: keycloak-server-initial-admin
-                  key: password
-                  optional: false
-            - name: KC_TRUSTSTORE_PATHS
-              value: '/var/run/secrets/kubernetes.io/serviceaccount/ca.crt,/var/run/secrets/kubernetes.io/serviceaccount/service-ca.crt'
-            - name: KC_CACHE
-              value: local
-            - name: KC_HEALTH_ENABLED
-              value: 'false'
-            - name: REALM_TO_EXPORT   
-              value: ${REALM_TO_EXPORT:-csa}   # <-------------------- THE REALM TO EXPORT 
-          ports:
-            - name: https
-              containerPort: 8443
-              protocol: TCP
-            - name: http
-              containerPort: 8080
-              protocol: TCP
-          imagePullPolicy: Always
-          startupProbe:
-            httpGet:
-              path: /health/started
-              port: 8443
-              scheme: HTTPS
-            timeoutSeconds: 1
-            periodSeconds: 1
-            successThreshold: 1
-            failureThreshold: 600
-          volumeMounts:
-            - name: keycloak-tls-certificates
-              mountPath: /mnt/certificates
-          terminationMessagePolicy: File
-          image: 'registry.redhat.io/rhbk/keycloak-rhel9@sha256:af27c26422aa7f56cfa0c615216b84d581932ad99751fe77893fa67b6c2742c2'
-          args:
-            - '-c'
-            - /opt/keycloak/bin/kc.sh --verbose build && /opt/keycloak/bin/kc.sh export --users realm_file --realm \${REALM_TO_EXPORT} --file /tmp/export-with-users.json && echo "%%%%%%%%%%" && cat /tmp/export-with-users.json
-      restartPolicy: Never
-      terminationGracePeriodSeconds: 30
-  completionMode: NonIndexed
-  suspend: false
-EOF
-```
+For exporting a realm definition with users, the following job uses the kc.sh tool and stores it in a file in at `/tmp/export-with-users.json` within the container. A configuration variable `REALM_TO_EXPORT` at container level indicates which realm is the one to export. After the export is done, the whole realm definition is dumped in the container stdout after a mark, which will be identified in a later step to get the JSON definition of the realm. 
 
-After the previous job finalizes, it would be possible to extract the definition, convert it to a YAML file and integrate it into a KeycloakRealmImporter CRD to be created. 
+In the [realm-mgmt-cli](realm-mgmt-cli) folder there are scripts to export and import from an OpenShift cluster:
 
-```console
-export OUTPUT_FOLDER=$(date +%Y%m%d%H%M%S)
-# Create output folder
-echo Creating folder $OUTPUT_FOLDER
-mkdir $OUTPUT_FOLDER
-# Get realm definition in YAML
-echo Extracting Realm Definition from...
-export EXPORT_POD=$(oc get pods --sort-by=.metadata.creationTimestamp -oname \
-        | grep "cat-realm-users-exporter" \
-        | tac \
-        | head -1)  
-echo ... pod: $EXPORT_POD
-oc logs $EXPORT_POD \
-    | sed -n '/%%%%%%%%%%/,$p' \
-    | tail -n +2  > $OUTPUT_FOLDER/realm-definition.json
-echo Transforming Realm JSON definition to YAML
-cat $OUTPUT_FOLDER/realm-definition.json \
-    | yq -P > $OUTPUT_FOLDER/realm-definition.yaml
-# Compose YAML importer 
-echo Creating realm importer CRD
-export IMPORTER_HEADER_YAML=/tmp/importer-header.yaml
-cat <<EOF > $IMPORTER_HEADER_YAML
-kind: KeycloakRealmImport
-apiVersion: k8s.keycloak.org/v2alpha1
-metadata:
-  generateName: realm-importer-
-  labels:
-    app: sso
-  namespace: keycloak-operator
-spec:
-  keycloakCRName: keycloak-server
-  realm: {}
-EOF
-export REALM_YAML_FILE=$OUTPUT_FOLDER/realm-definition.yaml
-yq '. | .spec.realm=load(strenv(REALM_YAML_FILE))' $IMPORTER_HEADER_YAML \
-    > ./$OUTPUT_FOLDER/realm-importer.yaml
-# Create OpenShift resource
-echo Create realm importer in OpenShift
-oc apply -f ./$OUTPUT_FOLDER/realm-importer.yaml
-```
+- Export: `./export.sh <realm-name>`. The realm must exists and a valid session must be available with the `oc` tool.
+- Import: `./import.sh <realm-definition-file.json>`. A valid session must be available with the `oc` tool.
 
-If a JSON file is already available -for instance, via the Realm Settings export functionality- instead of picking the file from the job, use the file as input for the transformation to YAML and the composition of the importer. For instance (it only shows the YAML file, does not create the CRD) 
-
-```console
-export REALM_JSON_FILE=~/Downloads/realm-export.json
-export REALM_YAML_FILE=./realm-export-$(date +%Y%m%d%H%M%S).yaml
-echo Transforming Realm JSON definition to YAML
-cat $REALM_JSON_FILE | yq -P > REALM_YAML_FILE
-echo Creating realm importer CRD
-export REALM_YAML_FILE=$OUTPUT_FOLDER/realm-definition.yaml
-yq '. | .spec.realm=load(strenv(REALM_YAML_FILE))' importer-header.yaml 
-```
 
 ## Database Backup and Restore steps
 
