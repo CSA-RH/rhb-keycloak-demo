@@ -1,6 +1,4 @@
 # Description 
-
-
 This project serves as a comprehensive demonstration of Keycloak integration, showcasing its deployment and usage across various components. The repository includes the following key features:
 
 - *Keycloak Operator Installation*: Automate the deployment and management of Keycloak within the cluster. It install
@@ -249,7 +247,6 @@ To install the client, please refer to the folder [keycloak-client](install/keyc
 Realms configuration are located in the associated Keycloak backend database. It's possible to manage realms either by performing backup and restore on the target database or by exporting and importing realm configuration with the by Keycloak provided took kc.sh. 
 
 ## Import and Export realms from OpenShift with CLI and Web tools
-
 As an example, the following job uses the kc.sh tool for exporting a realm with users and storing it in a file in at `/tmp/export-with-users.json` file. A configuration variable `REALM_TO_EXPORT` at container level indicates which realm is the one to export. After the export it sets a mark to be identified in a later step to get the JSON definition of the realm. 
 
 ```console
@@ -386,8 +383,21 @@ cat $OUTPUT_FOLDER/realm-definition.json \
     | yq -P > $OUTPUT_FOLDER/realm-definition.yaml
 # Compose YAML importer 
 echo Creating realm importer CRD
+export IMPORTER_HEADER_YAML=/tmp/importer-header.yaml
+cat <<EOF > $IMPORTER_HEADER_YAML
+kind: KeycloakRealmImport
+apiVersion: k8s.keycloak.org/v2alpha1
+metadata:
+  generateName: realm-importer-
+  labels:
+    app: sso
+  namespace: keycloak-operator
+spec:
+  keycloakCRName: keycloak-server
+  realm: {}
+EOF
 export REALM_YAML_FILE=$OUTPUT_FOLDER/realm-definition.yaml
-yq '. | .spec.realm=load(strenv(REALM_YAML_FILE))' importer-header.yaml \
+yq '. | .spec.realm=load(strenv(REALM_YAML_FILE))' $IMPORTER_HEADER_YAML \
     > ./$OUTPUT_FOLDER/realm-importer.yaml
 echo Create realm importer in OpenShift
 oc apply -f ./$OUTPUT_FOLDER/realm-importer.yaml
