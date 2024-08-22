@@ -399,6 +399,7 @@ EOF
 export REALM_YAML_FILE=$OUTPUT_FOLDER/realm-definition.yaml
 yq '. | .spec.realm=load(strenv(REALM_YAML_FILE))' $IMPORTER_HEADER_YAML \
     > ./$OUTPUT_FOLDER/realm-importer.yaml
+# Create OpenShift resource
 echo Create realm importer in OpenShift
 oc apply -f ./$OUTPUT_FOLDER/realm-importer.yaml
 ```
