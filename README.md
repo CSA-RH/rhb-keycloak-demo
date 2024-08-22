@@ -306,8 +306,7 @@ oc exec -n keycloak-postgres postgresql-db-0 -i \
    Delete User: 
    
    ```sql
-   DELETE FROM user_entity WHERE id IN (
-       SELECT id FROM user_entity WHERE username='admin');
+   DELETE FROM user_entity WHERE username='admin';
    ```
 
 3. Scale it back up by setting `'instances: X'` in the `Keycloak` CR. Optionally after the pod is `"Ready (1/1)"` scale it up to the desired amount of instances if more than one.
