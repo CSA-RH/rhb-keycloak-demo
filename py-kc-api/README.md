@@ -22,3 +22,5 @@ Client credentials will be available on the `Credentials` tab
 
 Configuration is stored locally under `.config` file. It may be needed to give execution permissions (`chmod +x kc-api-get.py`). It requires python +3.10. Execute the help for more information `./kc-api-get.py -h`. 
 
+When the dump `/install/data/keycloak-backup-data.sql` is restored, the client secret is `UD7JNCTD1RkqxIraKk02fcABWXfzLDrB`.
+

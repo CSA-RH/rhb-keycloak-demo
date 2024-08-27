@@ -7,6 +7,7 @@ This project serves as a comprehensive demonstration of Keycloak integration, sh
 ReactJS Application Integration: Demonstrate the usage of a ReactJS application authenticated via the CSA realm and webauth client.
 - *Realm Management Scripts*: Includes scripts for importing and exporting Keycloak realms using the Operator CRD and OpenShift resources.
 - *Database Backup & Restore*: Provides scripts to facilitate the backup and restoration of the Postgres database associated with Keycloak.
+- *Admin REST API usage*: A python example about how to use the Keycloak API. In the provided example at install folder, the backup `keycloak-backup-admin.sql` comes with the preconfigured API. 
 
 More information about the installation files in the [README](install/README.md) file of the install folder in this repository. 
 
@@ -112,109 +113,21 @@ EOF
 ```
 
 # Keycloak server installation
-The keycloak server will be deployed at the  address `https://oauth-${PROJECT_NAME}${WILDCARD_ADDRESS}` where `PROJECT_NAME` is the `keycloak-operator` namespace and `WILDCARD_ADDRESS` is the suffix for the default route addresses (At `openshiftapps.com` in ROSA clusters). The TLS certificate is extracted form the `default-ingress-cert` secret located in the namespace `openshift-ingress`. This certificate contains as Subject Alternative Name the wildcard address for the default routes, therefore Keycloak will be able to decrypt the traffic signed with the public certificate at the SSL layer. Credentials for DB access -created in a previous step- are provided and stored into the secret `keycloak-database-secret`. 
+The keycloak server will be deployed at the  address `https://oauth-${PROJECT_NAME}${WILDCARD_ADDRESS}` where `PROJECT_NAME` is the `keycloak-operator` namespace and `WILDCARD_ADDRESS` is the suffix for the default route addresses (At `openshiftapps.com` in ROSA clusters). The TLS certificate is extracted form the tls secret for the default ingress controller, which is located in the namespace `openshift-ingress`. The scripts generates a Private CA which signs the Keycloak site certificate, therefore Keycloak will be able to decrypt the traffic signed with the public certificate at the SSL layer. Credentials for DB access -created in a previous step- are provided and stored into the secret `keycloak-database-secret`. 
+
+After executing the installation script, `deploy-server.sh`, the certificate for SSL termination is available at `secret/keycloak-route-tls-secret` in the namespace `keycloak-operator`. 
 
 ```console
-export PROJECT_NAME=keycloak-operator
-oc project $PROJECT_NAME
-export TLS_SECRET_NAME=general-tls-secret
-export TLS_SECRET_EXISTS=$(oc get secret ${TLS_SECRET_NAME} --ignore-not-found | wc -l)
-export TMP_TLS_CERT_YAML=/tmp/cluster-cert.yaml
-export TMP_TLS_CERT_CRT=/tmp/cluster-cert.crt
-if [ $TLS_SECRET_EXISTS -eq 0 ]; then
-  echo "*** Get the TLS certificate from HAProxy router"
-  oc get -oyaml \
-    -n openshift-ingress \
-    secret/default-ingress-cert  \
-    | yq eval '.metadata.name=env(TLS_SECRET_NAME) 
-      | del(.metadata.namespace) 
-      | del(.metadata.uid) 
-      | del(.metadata.resourceVersion) 
-      | del(.metadata.creationTimestamp)' - > ${TMP_TLS_CERT_YAML}
-  oc apply -f ${TMP_TLS_CERT_YAML}
-  cat ${TMP_TLS_CERT_YAML} \
-  | yq eval '.data."tls.crt"' \
-  | base64 -d > $TMP_TLS_CERT_CRT
-  rm ${TMP_TLS_CERT_YAML}
-else
-  echo "*** Get the TLS certificate from the existing secret"
-  oc get secret $TLS_SECRET_NAME \
-    -ojsonpath='{.data.tls\.crt}'  \
-    | base64 -d >  ${TMP_TLS_CERT_CRT}
-fi
-echo "*** Get the wildcard address form the general cert"
-export WILDCARD_ADDRESS=$(openssl x509 -in $TMP_TLS_CERT_CRT -noout -ext subjectAltName \
-  | grep DNS \
-  | cut -d ':' -f 2)
-rm ${TMP_TLS_CERT_CRT}
-export OAUTH_ENDPOINT=oauth-${PROJECT_NAME}${WILDCARD_ADDRESS//\*}
-echo "    OAUTH_ENDPOINT=${OAUTH_ENDPOINT}"
-export DB_SECRET_NAME=keycloak-database-secret
-export DB_SECRET_EXISTS=$(oc get secret ${DB_SECRET_NAME} --ignore-not-found | wc -l)
-echo "*** Create the PG database secret"
-if [ $TLS_SECRET_EXISTS -eq 0 ]; then
-  cat <<EOF | oc apply -f -
-apiVersion: v1
-kind: Secret
-metadata:
-  name: ${DB_SECRET_NAME}
-  namespace: ${PROJECT_NAME}
-type: Opaque
-data:
-  password: dGVzdHBhc3N3b3Jk
-  username: dGVzdHVzZXI=
-EOF
-else
-  echo "    Secret already present"
-fi
-export KEYCLOAK_NAME=keycloak-server
-export KEYCLOAK_EXISTS=$(oc get keycloak ${KEYCLOAK_NAME} --ignore-not-found | wc -l)
-echo "*** Create the Keycloak server"
-if [ $TLS_SECRET_EXISTS -eq 0 ]; then  
-  cat <<EOF | oc apply -f -
-apiVersion: k8s.keycloak.org/v2alpha1
-kind: Keycloak
-metadata:
-  name: ${KEYCLOAK_NAME}
-  namespace: ${PROJECT_NAME}
-spec:  
-  ingress: 
-    className: openshift-default
-    enabled: true
-  instances: 2
-  hostname: 
-    hostname: ${OAUTH_ENDPOINT}
-  http: 
-    tlsSecret: ${TLS_SECRET_NAME}
-  db:
-    vendor: postgres
-    host: postgres-db.keycloak-postgres.svc
-    usernameSecret:
-      name: keycloak-database-secret
-      key: username
-    passwordSecret:
-      name: keycloak-database-secret
-      key: password
-  proxy:
-    headers: xforwarded # double check your reverse proxy sets and overwrites the X-Forwarded-* headers
-EOF
-else
-  echo "    Server already present"
-fi
+oc get secret keycloak-route-tls-secret \
+  -n keycloak-operator -ojsonpath='{.data.tls\.crt}' \
+| base64 -d \
+| openssl x509 -text -noout
 ```
 
-For using the Wildcard certificate signed with a public CA, we could use instead: 
-
+Also is the DB secret
 ```console
-  echo "*** Get the TLS certificate from HAProxy router"
-  oc get -oyaml \
-    -n openshift-ingress \
-    $(oc get secret -n openshift-ingress -oNAME | grep primary-cert-bundle) \
-    | yq eval '.metadata.name=env(SECRET_NAME) 
-      | del(.metadata.namespace) 
-      | del(.metadata.uid) 
-      | del(.metadata.resourceVersion) 
-      | del(.metadata.creationTimestamp)' - > ${TMP_TLS_CERT_YAML}
+oc get secret keycloak-database-secret \
+  -n keycloak-operator -oyaml \
 ```
 
 For waiting until the Keycloak Server is up and running we can run the command: 
