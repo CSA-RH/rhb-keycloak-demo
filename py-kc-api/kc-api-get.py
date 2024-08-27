@@ -3,6 +3,10 @@ import requests # type: ignore
 import argparse
 import os
 import configparser
+import urllib3 # type: ignore
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 ## Parse arguments
 parser = argparse.ArgumentParser(
@@ -61,10 +65,6 @@ if args.config:
         config_obj.write(file_obj)
     exit(0)
 
-
-#base_uri = "http://localhost:8080"
-#client_secret = "UD7JNCTD1RkqxIraKk02fcABWXfzLDrB" 
-
 # Retrieve Bearer token from requests
 headers={"Content-Type":"application/x-www-form-urlencoded"}
 data = {
@@ -76,7 +76,8 @@ token_url="{}/realms/master/protocol/openid-connect/token".format(kc_url)
 response = requests.post(
     url=token_url,
     headers=headers, 
-    data=data)
+    data=data, 
+    verify=False)
 
 # Set the Authorization header to the Bearer token retrieved
 access_token=response.json()['access_token']
@@ -95,7 +96,8 @@ else:
 # Perform the API call
 response = requests.get(
     url=query_url, 
-    headers = headers)
+    headers = headers, 
+    verify=False)
 
 # Print raw respose
 print(response.text)
