@@ -145,7 +145,8 @@ fi
 echo "*** Get the wildcard address form the general cert"
 export WILDCARD_ADDRESS=$(openssl x509 -in $TMP_TLS_CERT_CRT -noout -ext subjectAltName \
   | grep DNS \
-  | cut -d ':' -f 2)
+  | cut -d ':' -f 2 \
+  | cut -d ',' -f 1)
 rm ${TMP_TLS_CERT_CRT}
 export OAUTH_ENDPOINT=oauth-${PROJECT_NAME}${WILDCARD_ADDRESS//\*}
 echo "    OAUTH_ENDPOINT=${OAUTH_ENDPOINT}"
@@ -210,7 +211,7 @@ For using the Wildcard certificate signed with a public CA, we could use instead
   oc get -oyaml \
     -n openshift-ingress \
     $(oc get secret -n openshift-ingress -oNAME | grep primary-cert-bundle) \
-    | yq eval '.metadata.name=env(SECRET_NAME) 
+    | yq eval '.metadata.name=env(TLS_SECRET_NAME) 
       | del(.metadata.namespace) 
       | del(.metadata.uid) 
       | del(.metadata.resourceVersion) 
