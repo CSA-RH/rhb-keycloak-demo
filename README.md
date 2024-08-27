@@ -310,3 +310,7 @@ oc exec -n keycloak-postgres postgresql-db-0 -i \
    ```
 
 3. Scale it back up by setting `'instances: X'` in the `Keycloak` CR. Optionally after the pod is `"Ready (1/1)"` scale it up to the desired amount of instances if more than one.
+
+# Admin REST API usage
+
+Python example, configuration and usage notes in the folder [py-kc-api](py-kc-api).
